@@ -3,6 +3,7 @@
 use clap::{Parser, ValueEnum};
 use itertools::Itertools;
 use petgraph::algo::greedy_feedback_arc_set;
+use petgraph::dot::Config;
 use petgraph::dot::Dot;
 use petgraph::graph::EdgeIndex;
 use petgraph::prelude::DiGraphMap;
@@ -23,6 +24,10 @@ struct Args {
     /// Input JSON file used to parse stacks
     #[arg(value_name = "FILE")]
     file: PathBuf,
+
+    /// Additional input JSON file used to compare against reference graph
+    #[arg(value_name = "FILE2")]
+    file2: Option<PathBuf>,
 
     /// Output DOT file
     #[arg(long)]
@@ -50,7 +55,12 @@ enum PruneOpt {
     Pass,
 }
 
-fn output(dig: DiGraphMap<&str, &str>, out_dot: Option<String>, out_tree: bool) {
+fn output(
+    dig: DiGraphMap<&str, &str>,
+    coverage_intersection: HashSet<String>,
+    out_dot: Option<String>,
+    out_tree: bool,
+) {
     out_dot.map(|out| {
         let name = std::path::Path::new(&out);
         let mut file = std::fs::OpenOptions::new()
@@ -60,8 +70,27 @@ fn output(dig: DiGraphMap<&str, &str>, out_dot: Option<String>, out_tree: bool) 
             .truncate(true)
             .open(name)
             .unwrap();
-        file.write_all(Dot::new(&dig).to_string().as_bytes())
-            .unwrap();
+        file.write_all(
+            Dot::with_attr_getters(
+                &dig,
+                &[Config::NodeNoLabel, Config::EdgeNoLabel],
+                &|_, _| String::new(),
+                &|_, (_, node)| {
+                    let fillcolor = if coverage_intersection.contains(*node) {
+                        "#bbffdd"
+                    } else {
+                        "#ffffff"
+                    };
+                    format!(
+                        r#"fillcolor="{}" style="filled" label="{}""#,
+                        fillcolor, node
+                    )
+                },
+            )
+            .to_string()
+            .as_bytes(),
+        )
+        .unwrap();
     });
 
     if out_tree {
@@ -104,6 +133,10 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let json_str = std::fs::read_to_string(args.file)?;
     let json: serde_json::Value = serde_json::from_str(json_str.as_str())?;
+    let json2: Option<serde_json::Value> = args.file2.map_or(None, |file2| {
+        let json_str2 = std::fs::read_to_string(file2).unwrap();
+        Some(serde_json::from_str(json_str2.as_str()).unwrap())
+    });
 
     let mut nodes_by_targets: HashMap<String, HashSet<String>> = HashMap::new();
     let mut neighbours_by_nodes: HashMap<String, HashSet<String>> = HashMap::new();
@@ -182,6 +215,17 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
     //println!("{:?}", targets_intersection);
 
+    let mut nodes1 = HashSet::new();
+    let mut nodes2 = HashSet::new();
+    json2.map(|j| {
+        // These nodes are only used for coverage highlighting
+        // in the pruned graph, they are not being added to it.
+        for (stack, _) in j.as_object().unwrap() {
+            stack.split("\x1f").for_each(|node| {
+                nodes2.insert(node.to_string());
+            });
+        }
+    });
     if args.targets.is_empty() {
         for (stack, _) in json.as_object().unwrap() {
             let stack_parts = stack.split("\x1f");
@@ -192,6 +236,9 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .tuple_windows()
             {
                 dig.add_edge(node1, node2, "");
+
+                nodes1.insert(node1.to_string());
+                nodes1.insert(node2.to_string());
             }
         }
     } else {
@@ -228,6 +275,9 @@ fn main() -> Result<(), Box<dyn Error>> {
 
                     dig.add_edge(node1, node2, "");
 
+                    nodes1.insert(node1.to_string());
+                    nodes1.insert(node2.to_string());
+
                     if args.prune == PruneOpt::All && node2 == target {
                         // Skip children of this target.
                         break;
@@ -237,7 +287,9 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     }
 
-    output(dig, args.out_dot, args.out_tree);
+    let coverage_intersection: HashSet<String> =
+        HashSet::from_iter(nodes1.intersection(&nodes2).cloned());
+    output(dig, coverage_intersection, args.out_dot, args.out_tree);
 
     Ok(())
 }

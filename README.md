@@ -102,6 +102,7 @@ Stacktraces are collected via sampled profiling, using [perf events](https://git
 sudo sysctl kernel.perf_event_paranoid=1
 sudo sysctl kernel.kptr_restrict=0
 perf record -F 999 --call-graph lbr ~/opt/sqlite-bench/sqlite-bench --benchmarks=readseq
+perf report -D | ./bts.perf.py
 ```
 
 Full graph (note that multiple root nodes can exist due to excluded frame addresses not matching debuginfo):
@@ -134,6 +135,21 @@ cargo run bts.perf.json --out-dot=bts.perf.1func.dot \
     --prune=all --targets=sqlite3PagerOpenWal && dot -Tsvg bts.perf.1func.dot > bts.perf.1func.svg
 ```
 <img src="./examples/bts.perf.1func.png" height=280rem>
+
+#### Coverage analysis
+
+We can also pass a second input file, comparing its frames against the reference graph built from the first input file. Covered frames will be highlighted in the output graph.
+
+Pruned subgraph of paths containing 2 target function names:
+
+```sh
+perf record -F 1 --call-graph lbr ~/opt/sqlite-bench/sqlite-bench --benchmarks=readseq
+perf report -D | ./bts.perf.py # Renamed as `bts.perf.f1.json`
+
+cargo run bts.perf.json bts.perf.f1.json --out-dot=bts.perf.f1.2funcs.dot \
+   --prune=all --targets=sqlite3WalEndReadTransaction,sqlite3PagerOpenWal && dot -Tsvg bts.perf.f1.2funcs.dot > bts.perf.f1.2funcs.svg
+```
+<img src="./examples/bts.perf.f1.2funcs.png" height=280rem>
 
 ### bpftrace
 
@@ -169,7 +185,7 @@ Perhaps a rabbit hole to be followed...
 
 ## TODO
 
-- Actual coverage analysis: Pass additional input stacktraces, and diff visited nodes against a primary input base file, highlighting nodes that are common;
 - Include metadata: Function parameter / variable values (grouped-by distinct visited paths?);
 - More input formats: eBPF via bpftrace; language-specific function call parsers;
 - More output formats: Prefer simpler graph layouts like [iongraph](https://spidermonkey.dev/blog/2025/10/28/iongraph-web.html);
+- Reduce output clutter: Nodes with a single child can be collapsed into a single multi-line node;
