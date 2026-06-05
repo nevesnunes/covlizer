@@ -187,5 +187,5 @@ Perhaps a rabbit hole to be followed...
 
 - Include metadata: Function parameter / variable values (grouped-by distinct visited paths?);
 - More input formats: eBPF via bpftrace; language-specific function call parsers;
-- More output formats: Prefer simpler graph layouts like [iongraph](https://spidermonkey.dev/blog/2025/10/28/iongraph-web.html) or [IGV's CFG](https://robcasloz.github.io/blog/2022/05/24/a-friendlier-visualization-of-javas-jit-compiler-based-on-control-flow.html);
+- More output formats: Prefer simpler graph layouts like [iongraph](https://spidermonkey.dev/blog/2025/10/28/iongraph-web.html), [IGV's CFG](https://robcasloz.github.io/blog/2022/05/24/a-friendlier-visualization-of-javas-jit-compiler-based-on-control-flow.html), or [SimplifyGraph](https://github.com/mandiant/SimplifyGraph);
 - Reduce output clutter: Nodes with a single child can be collapsed into a single multi-line node;
