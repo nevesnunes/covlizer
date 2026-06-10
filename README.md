@@ -185,7 +185,15 @@ Perhaps a rabbit hole to be followed...
 
 ## TODO
 
-- Include metadata: Function parameter / variable values (grouped-by distinct visited paths?);
+- Track data flow: Function parameter / variable values (grouped-by distinct visited paths?);
+    - Doesn't look like perf supports user probes with stack sampling?
+        ```sh
+        perf probe -x ./sqlite-bench 'sqlitebench:colname=sqlite3_step v->aColName->z:string'
+        perf record -e sqlitebench:colname -F 999 --call-graph lbr ~/opt/sqlite-bench/sqlite-bench --benchmarks=readseq
+        # Error:
+        # sqlitebench:colname: PMU Hardware or event type doesn't support branch stack sampling.
+        ```
 - More input formats: eBPF via bpftrace; language-specific function call parsers;
 - More output formats: Prefer simpler graph layouts like [iongraph](https://spidermonkey.dev/blog/2025/10/28/iongraph-web.html), [IGV's CFG](https://robcasloz.github.io/blog/2022/05/24/a-friendlier-visualization-of-javas-jit-compiler-based-on-control-flow.html), or [SimplifyGraph](https://github.com/mandiant/SimplifyGraph);
+    - Modified IGV's CFG: Render multiple linear stacktraces, each numbered root can cross-reference stacktrace with ancestors of that root;
 - Reduce output clutter: Nodes with a single child can be collapsed into a single multi-line node;
