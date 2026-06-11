@@ -186,6 +186,7 @@ Perhaps a rabbit hole to be followed...
 ## TODO
 
 - Track data flow: Function parameter / variable values (grouped-by distinct visited paths?);
+    - For each dependency, render stacktrace at source;
     - For each sink, colorize it + dependencies (render as list after frame);
     - Doesn't look like perf supports user probes with stack sampling?
         ```sh
